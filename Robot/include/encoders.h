@@ -18,7 +18,7 @@ public:
 void Encoder::Begin(int pinA, int pinB){ 
 
   this->pinEncB = pinB; 
-
+  this->odometer = 0;
   pinMode(pinA, INPUT);
   pinMode(pinB, INPUT);
 
