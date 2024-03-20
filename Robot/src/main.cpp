@@ -13,9 +13,11 @@
 #define RIGHT_MOTOR_A       37                    // GPIO37 pin 30 (J37) Motor 2 A
 #define RIGHT_MOTOR_B       38                    // GPIO38 pin 31 (J38) Motor 2 B
 
-#define STEPLENGTH          1000                   // length of one grid "tile"
-#define ERRORMARGIN         10                     // margin of error in encoder counts
-
+#define ROTATION          1160                    // encoder counts for one full rotation, 6cm wheel diameter, ~18.849 cm circumference
+#define GRIDSIZE          20                       // size of one grid "step" in cm 
+#define ERRORMARGIN       20                      // margin of error in encoder counts
+#define WHEELBASE         16.3                    // wheelbase in cm
+#define WHEEL_DIAMETER    6                       // wheel diameter in cm
 
 
 void updateTarget(char* instructionList, int step, int* target);
@@ -24,7 +26,7 @@ Encoder encoders[2];
 
 Motor motors[2];
 
-char path[21] = "ffffffffffbbbbbbbbbb"; // list of coordinates for the robot to follow:
+char path[] = "fr"; // list of coordinates for the robot to follow:
 
 // f: forwards one tile
 // b: backwards one tile
@@ -32,6 +34,10 @@ char path[21] = "ffffffffffbbbbbbbbbb"; // list of coordinates for the robot to 
 // l: Turn 180 degrees to the left
 
 int step = 0; //current position in the list of coordinates
+
+int countsPerCm = ROTATION/(WHEEL_DIAMETER*PI);
+
+double stepsize = countsPerCm*GRIDSIZE;
 bool targetReached = false;
 int encoderTarget[2] = {0,0}; // target counts for left and right encoder
 bool start = false;
@@ -67,9 +73,7 @@ void loop() {
       motors[0].Move(0,1);
       motors[1].Move(0,1);
       Serial.print("Done!");
-      delay(10000);
-      step = 0;
-      break;
+      delay(1000);
     }
     }
 
@@ -99,14 +103,19 @@ void updateTarget(char* instructionList, int step, int* target){
   switch (instructionList[step]){
     case 'f':
       Serial.println("Set target forwards");
-      target[0]+=STEPLENGTH;
-      target[1]+=STEPLENGTH; 
+      target[0]+=stepsize;
+      target[1]+=stepsize; 
       break;
     case 'b':
     Serial.println("Set target backwards");
-      target[0]-=STEPLENGTH;
-      target[1]-=STEPLENGTH;
+      target[0]-=stepsize;
+      target[1]-=stepsize;
       break;
+    case 'r':
+      Serial.println("Set target right");
+      target[0]+= (stepsize+WHEELBASE*countsPerCm)*PI/2;
+      target[1]+= (stepsize-WHEELBASE*countsPerCm)*PI/2;
+
   }
 
 }

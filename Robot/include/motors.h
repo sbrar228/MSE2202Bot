@@ -71,24 +71,28 @@ double Motor::CalcGain(int target){
   double gain = (target-this->encoder->odometer);
 
   if (target==0){
-    if(this->encoder->odometer<target) return 0.6; // to avoid divide by zero
-    else return -0.6;
+    if(this->encoder->odometer<target) return 0.7; // to avoid divide by zero
+    else return -0.7;
   }
+
+
+  // gain equation (takes a value between 0 and 1 for input 'x')
+  // (2/5pi)arctan(16.4x - 3.5) - (2/5pi)arctan(9.1x-6.1)
 
   gain = gain/(abs(target));
 
   // constrain gain between 0.7 and 1
   if(gain>0){
-    gain = 0.6+gain*0.4;
+    gain = 0.7+gain*0.3;
   }
   if(gain<0){
-    gain = -0.6+gain*0.4;
+    gain = -0.7+gain*0.3;
   }
-  if(gain>1.0){
-    return 1.0;
+  if(gain>0.9){
+    return 0.9;
   }
-  if (gain<-1.0){
-    return -1.0;
+  if (gain<-0.9){
+    return -0.9;
   }
   
   return gain;
