@@ -1,18 +1,24 @@
+/**********************************************************************************
+ *  Encoder Object Header File
+ * 
+ * **********************************************************************************/
 
 #include "Arduino.h"
 #include "FunctionalInterrupt.h"
-class Encoder{ //class to handle encoders
+
+
+class Encoder{ 
 
 public:
+  int pinEncB;                    //Encoder pin B, pin A is only used in the interrupt.
+  int side;                       //Encoder side, 0 for left, 1 for right
+  volatile long odometer;         //total encoder counts
+  volatile long speed;            //delta since last reading
 
-  int pinEncB; //Encoder pin B
-  int side; //Encoder side, 0 for left, 1 for right
-  volatile long odometer; // total encoder counts
-  volatile long speed; // delta since last reading
 
-
-  void EncoderISR();
-  void Begin(int pinA, int pinB);
+  void EncoderISR();              //interrupt to read encoder counts accurately
+  void Begin(int pinA, int pinB); //set up encoder pins and atatch ISR
+  void Reset();                   //reset encoder counts
 };
 
 void Encoder::Begin(int pinA, int pinB){ 
@@ -50,4 +56,9 @@ void Encoder::EncoderISR(){ //ISR to run every encoder tick
     this->speed = this->odometer - lastOdometer;
     lastOdometer = this->odometer;
   }
+}
+
+void Encoder::Reset(){
+
+  this->odometer = 0;
 }
