@@ -24,6 +24,8 @@
 #include <Arduino.h>
 #include "encoders.h"
 #include "motors.h"
+#include <ezButton.h>
+#include <WiFi.h>
 
 #define LEFT_ENC_A          10                    // left encoder C1 on pin 10
 #define LEFT_ENC_B          11                    // left encoder C2 on pin 11
@@ -39,6 +41,9 @@
 #define ERRORMARGIN       20                      // margin of error in encoder counts
 #define WHEELBASE         16.5                    // wheelbase in cm
 #define WHEEL_DIAMETER    6                       // wheel diameter in cm
+#define BUTTON_PIN_1      21                      // ESP32 pin GPIO21 connected to button
+#define BUTTON_PIN_2      22                      // ESP32 pin GPIO21 connected to button
+
 //#define TELEPLOT                                // serial output formatted to be plotted on teleplot.fr, used for debugging/optimization
 
 
@@ -68,6 +73,18 @@ double stepsize = countsPerCm*GRIDSIZE;         // how many encoder counts per "
 double outerTurnRadius90 = (stepsize+WHEELBASE*countsPerCm)*PI/4; // encoder counts for outer wheel on a 90 degree turn
 double innerTurnRadius90 = (stepsize-WHEELBASE*countsPerCm)*PI/4; // encoder counts for inner wheel on a 90 degree turn
 
+///////////////
+//wifi consts//
+const char* ssid = "suneetsiPhone";     // CHANGE TO YOUR WIFI SSID
+const char* password = "20040531"; // CHANGE TO YOUR WIFI PASSWORD
+const char* serverAddress = "172.20.10.2"; // CHANGE TO ESP32#2'S IP ADDRESS
+const int serverPort = 4080;
+ezButton button1(BUTTON_PIN_1); // create ezButton for first button
+ezButton button2(BUTTON_PIN_2); // create ezButton for second button
+WiFiClient TCPclient;
+bool bothButtonsPressed = false;
+bool bothButtonsReleased = false;
+
 void setup() {
 
   Serial.begin(115200);              
@@ -78,6 +95,35 @@ void setup() {
   motors[0].Begin(LEFT_MOTOR_A,LEFT_MOTOR_B,0,&encoders[0]);
   motors[1].Begin(RIGHT_MOTOR_A,RIGHT_MOTOR_B,1,&encoders[1]);
   updateTarget(path, step, encoderTarget); //set first target
+
+/* ///////////////////////////////
+
+    start of wifi setup code
+
+*/////////////////////////////////
+  
+  button1.setDebounceTime(50); // set debounce time to 50 milliseconds
+  button2.setDebounceTime(50); // set debounce time to 50 milliseconds
+  Serial.println("ESP32: TCP CLIENT + A BUTTON/SWITCH");
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  Serial.println("Connected to WiFi");
+
+  // connect to TCP server (Arduino #2)
+  if (TCPclient.connect(serverAddress, serverPort)) {
+    Serial.println("Connected to TCP server");
+  } else {
+    Serial.println("Failed to connect to TCP server");
+  }
+  
+  ///////////////////////
+  // end of wifi setup //
+  ///////////////////////
 }
 
 void loop() {
@@ -125,7 +171,51 @@ void loop() {
     }
   }
   
-  
+///////////////////////////////////////////////// 
+//  
+//           Start of wifi code                   
+//                                    
+/////////////////////////////////////////////////
+  button1.loop(); // MUST call the loop() function first for button1
+  button2.loop(); // MUST call the loop() function first for button2
+
+  if (!TCPclient.connected()) {
+    Serial.println("Connection is disconnected");
+    TCPclient.stop();
+
+    // reconnect to TCP server (Arduino #2)
+    if (TCPclient.connect(serverAddress, serverPort)) {
+      Serial.println("Reconnected to TCP server");
+    } else {
+      Serial.println("Failed to reconnect to TCP server");
+    }
+  }
+
+  if (button1.isPressed() && button2.isPressed()) {
+    bothButtonsPressed = true;
+  }
+
+  if (bothButtonsPressed){
+    TCPclient.write('1');
+    TCPclient.flush();
+    Serial.println("- Both buttons are pressed, sent command: 1");
+  }  
+
+  if (button1.isReleased() && button2.isReleased() && bothButtonsPressed) {
+    bothButtonsReleased = true;
+  }
+
+  if (bothButtonsReleased) {
+    TCPclient.write('0');
+    TCPclient.flush();
+    Serial.println("- Both buttons are released, sent command: 0");
+    bothButtonsReleased = false;
+    bothButtonsPressed = false; // reset both buttons pressed state
+  }
+
+    /*/////////////////////////// 
+        end of wifi code
+    *////////////////////////////    
 }
 
 void updateTarget(char* instructionList, int step, int* target){
